@@ -5,6 +5,7 @@
 pandas
 dagshub
 mlflow
+skops
 scikit-learn
 matplotlib
 seaborn

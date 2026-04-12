@@ -1,0 +1,66 @@
+stages:
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+      - src/data/data_ingestion.py
+      - src/blob/__init__.py
+      - src/constants/__init__.py
+      - src/logger/__init__.py
+      - params.yaml
+    params:
+      - data_ingestion
+    outs:
+      - data/raw/train.csv
+      - data/raw/test.csv
+
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+      - src/data/data_preprocessing.py
+      - src/logger/__init__.py
+      - params.yaml
+      - data/raw/train.csv
+      - data/raw/test.csv
+    params:
+      - data_preprocessing
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+      - model/preprocessor.pkl
+
+  model_building:
+    cmd: python src/model/model_building.py
+    deps:
+      - src/model/model_building.py
+      - src/logger/__init__.py
+      - params.yaml
+      - data/processed/train.csv
+    params:
+      - model_building
+    outs:
+      - model/model.pkl
+
+  model_evaluation:
+    cmd: python src/model/model_evaluation.py
+    deps:
+      - src/model/model_evaluation.py
+      - src/logger/__init__.py
+      - params.yaml
+      - model/model.pkl
+      - data/processed/test.csv
+    params:
+      - model_evaluation
+    metrics:
+      - reports/metrics.json
+    outs:
+      - reports/experiment_info.json
+
+  register_model:
+    cmd: python src/model/register_model.py
+    deps:
+      - src/model/register_model.py
+      - src/logger/__init__.py
+      - params.yaml
+      - reports/experiment_info.json
+    params:
+      - model_registration

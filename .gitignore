@@ -90,3 +90,5 @@ target/
 
 creds.txt
 src/constants/
+logging_details/
+data/

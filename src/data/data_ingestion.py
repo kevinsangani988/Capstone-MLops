@@ -12,14 +12,15 @@ from sklearn.preprocessing import LabelEncoder
 
 logger = create_logger()
 
-def load_params(params_path= str) -> dict :
+def load_params(params_path: str) -> dict:
     try:
-        with open(params_path, 'r') as f:
-            params = yaml.safe_load(f)
+        with open(params_path, 'r', encoding='utf-8') as f:
+            params = yaml.safe_load(f) or {}
             logger.debug('parameters loaded from %s', params_path)
             return params
-    except FileExistsError:
-        logger.error('file not found')
+    except FileNotFoundError:
+        logger.error('file not found: %s', params_path)
+        raise
     except yaml.YAMLError as e:
         logger.error('YAML error: %s', e)
         raise
@@ -55,15 +56,28 @@ def save_data(train_data: pd.DataFrame, test_data: pd.DataFrame, data_path: str)
 def main():
     try:
         params = load_params(params_path='params.yaml')
-        test_size = params['data_ingestion']['test_size']
-        # test_size = 0.2
-        
-        # df = load_data(data_url=GITHUB_URI)
+        ingestion_params = params.get('data_ingestion', {})
 
-        df = blob_connection_load_data(conn_str=conn_str,container=container,blob_name=blob_name)
+        test_size = ingestion_params.get('test_size', 0.25)
+        random_state = ingestion_params.get('random_state', 42)
+        data_path = ingestion_params.get('data_path', './data')
+        source_type = ingestion_params.get('source_type', 'blob')
 
-        train_data, test_data = train_test_split(df, test_size=test_size, random_state=42)
-        save_data(train_data, test_data, data_path='./data')
+        if source_type == 'csv':
+            data_url = ingestion_params.get('data_url', GITHUB_URI)
+            df = load_data(data_url=data_url)
+        else:
+            blob_conn_str = ingestion_params.get('conn_str') or conn_str
+            blob_container = ingestion_params.get('container', container)
+            blob_file_name = ingestion_params.get('blob_name', blob_name)
+            df = blob_connection_load_data(
+                conn_str=blob_conn_str,
+                container=blob_container,
+                blob_name=blob_file_name,
+            )
+
+        train_data, test_data = train_test_split(df, test_size=test_size, random_state=random_state)
+        save_data(train_data, test_data, data_path=data_path)
     except Exception as e:
         logger.error('Failed to complete the data ingestion process: %s', e)
         print(f"Error: {e}")

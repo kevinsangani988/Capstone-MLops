@@ -1,0 +1,209 @@
+schema: '2.0'
+stages:
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+    - path: params.yaml
+      hash: md5
+      md5: b112183a60f6d6578924e48ff35b18ed
+      size: 1555
+    - path: src/blob/__init__.py
+      hash: md5
+      md5: 0ba6a1337f306d473150d6c3d5f908a3
+      size: 1813
+    - path: src/constants/__init__.py
+      hash: md5
+      md5: 146085100def180b064f6907327b416d
+      size: 390
+    - path: src/data/data_ingestion.py
+      hash: md5
+      md5: 69392f99af432352cadec075e160622a
+      size: 3293
+    - path: src/logger/__init__.py
+      hash: md5
+      md5: 876d878d87711a23152b5d9b7b817ce9
+      size: 829
+    params:
+      params.yaml:
+        data_ingestion:
+          test_size: 0.25
+          random_state: 42
+          data_path: ./data
+          source_type: blob
+          data_url: 
+            https://raw.githubusercontent.com/kevinsangani988/dataset/refs/heads/main/loan_approval_dataset.csv
+          conn_str:
+          container: mlops-risk-analysis
+          blob_name: loan_approval_dataset.csv
+    outs:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 6ea5916afe0a352eb292cc97a861f2a7
+      size: 96333
+    - path: data/raw/train.csv
+      hash: md5
+      md5: 5e93e67b0367c30db7a3e4638d79fc6a
+      size: 288209
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 6ea5916afe0a352eb292cc97a861f2a7
+      size: 96333
+    - path: data/raw/train.csv
+      hash: md5
+      md5: 5e93e67b0367c30db7a3e4638d79fc6a
+      size: 288209
+    - path: params.yaml
+      hash: md5
+      md5: b112183a60f6d6578924e48ff35b18ed
+      size: 1555
+    - path: src/data/data_preprocessing.py
+      hash: md5
+      md5: b40f44b7aae030cd37273bd553bde912
+      size: 5849
+    - path: src/logger/__init__.py
+      hash: md5
+      md5: 876d878d87711a23152b5d9b7b817ce9
+      size: 829
+    params:
+      params.yaml:
+        data_preprocessing:
+          imputer_strategy: median
+          scaler: standard
+          raw_data_path: ./data/raw
+          processed_data_path: ./data
+          model_path: ./model
+          target_col: loan_status
+          drop_cols:
+          - loan_id
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 08176e1cf6cd174d38916e7347941b40
+      size: 208432
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 5c8bc3c06664ffeaef170eb1d234c234
+      size: 624431
+    - path: model/preprocessor.pkl
+      hash: md5
+      md5: dd41e46056f0fdc4c7a996d99aa01291
+      size: 2079
+  model_building:
+    cmd: python src/model/model_building.py
+    deps:
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 5c8bc3c06664ffeaef170eb1d234c234
+      size: 624431
+    - path: params.yaml
+      hash: md5
+      md5: b112183a60f6d6578924e48ff35b18ed
+      size: 1555
+    - path: src/logger/__init__.py
+      hash: md5
+      md5: 876d878d87711a23152b5d9b7b817ce9
+      size: 829
+    - path: src/model/model_building.py
+      hash: md5
+      md5: 18f660ba82fb55fcdab9fce11057e145
+      size: 3227
+    params:
+      params.yaml:
+        model_building:
+          train_data_path: ./data/processed/train.csv
+          model_output_path: ./model/model.pkl
+          target_col: loan_status
+          model_name: RandomForestClassifier
+          random_state: 42
+          n_jobs: -1
+          n_estimators: 300
+          max_depth: 20
+          min_samples_leaf: 1
+          min_samples_split: 2
+          criterion: gini
+          max_features: sqrt
+          bootstrap: true
+          max_samples: 0.8
+          class_weight:
+    outs:
+    - path: model/model.pkl
+      hash: md5
+      md5: ff9b73e1c05f46e9c2417a62a0f90bf5
+      size: 5887884
+  model_evaluation:
+    cmd: python src/model/model_evaluation.py
+    deps:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 08176e1cf6cd174d38916e7347941b40
+      size: 208432
+    - path: model/model.pkl
+      hash: md5
+      md5: ff9b73e1c05f46e9c2417a62a0f90bf5
+      size: 5887884
+    - path: params.yaml
+      hash: md5
+      md5: b112183a60f6d6578924e48ff35b18ed
+      size: 1555
+    - path: src/logger/__init__.py
+      hash: md5
+      md5: 876d878d87711a23152b5d9b7b817ce9
+      size: 829
+    - path: src/model/model_evaluation.py
+      hash: md5
+      md5: 2318b41cab9907b7dad20e413934e433
+      size: 6473
+    params:
+      params.yaml:
+        model_evaluation:
+          tracking_uri: 
+            https://dagshub.com/kevinsangani988/Capstone-MLops.mlflow
+          repo_owner: kevinsangani988
+          repo_name: Capstone-MLops
+          experiment_name: my-dvc-pipeline
+          model_file_path: ./model/model.pkl
+          test_data_path: ./data/processed/test.csv
+          metrics_path: reports/metrics.json
+          experiment_info_path: reports/experiment_info.json
+          mlflow_model_name: model
+    outs:
+    - path: reports/experiment_info.json
+      hash: md5
+      md5: c3675ccfa42520070677677762f71fdc
+      size: 146
+    - path: reports/metrics.json
+      hash: md5
+      md5: 60d88fa313b202de3816a41e869ba361
+      size: 145
+  register_model:
+    cmd: python src/model/register_model.py
+    deps:
+    - path: params.yaml
+      hash: md5
+      md5: b112183a60f6d6578924e48ff35b18ed
+      size: 1555
+    - path: reports/experiment_info.json
+      hash: md5
+      md5: c3675ccfa42520070677677762f71fdc
+      size: 146
+    - path: src/logger/__init__.py
+      hash: md5
+      md5: 876d878d87711a23152b5d9b7b817ce9
+      size: 829
+    - path: src/model/register_model.py
+      hash: md5
+      md5: 0bc22c4ca422ee959098e6d7dc4a8854
+      size: 5172
+    params:
+      params.yaml:
+        model_registration:
+          tracking_uri: 
+            https://dagshub.com/kevinsangani988/Capstone-MLops.mlflow
+          repo_owner: kevinsangani988
+          repo_name: Capstone-MLops
+          model_info_path: reports/experiment_info.json
+          model_name: my_model
+          stage: Staging

@@ -1,2 +1,58 @@
 data_ingestion:
   test_size: 0.25
+  random_state: 42
+  data_path: ./data
+  source_type: blob
+  data_url: https://raw.githubusercontent.com/kevinsangani988/dataset/refs/heads/main/loan_approval_dataset.csv
+  conn_str: null
+  container: mlops-risk-analysis
+  blob_name: loan_approval_dataset.csv
+
+data_preprocessing:
+  imputer_strategy: median
+  scaler: standard
+  raw_data_path: ./data/raw
+  processed_data_path: ./data
+  model_path: ./model
+  target_col: loan_status
+  drop_cols:
+    - loan_id
+
+model_building:
+  train_data_path: ./data/processed/train.csv
+  model_output_path: ./model/model.pkl
+  target_col: loan_status
+  model_name: RandomForestClassifier
+  random_state: 42
+  n_jobs: -1
+  n_estimators: 300
+  max_depth: 20
+  min_samples_leaf: 1
+  min_samples_split: 2
+  criterion: gini
+  max_features: sqrt
+  bootstrap: true
+  max_samples: 0.8
+  class_weight: null
+
+model_evaluation:
+  tracking_uri: https://dagshub.com/kevinsangani988/Capstone-MLops.mlflow
+  repo_owner: kevinsangani988
+  repo_name: Capstone-MLops
+  experiment_name: my-dvc-pipeline
+  model_file_path: ./model/model.pkl
+  test_data_path: ./data/processed/test.csv
+  metrics_path: reports/metrics.json
+  experiment_info_path: reports/experiment_info.json
+  mlflow_model_name: model
+
+model_registration:
+  tracking_uri: https://dagshub.com/kevinsangani988/Capstone-MLops.mlflow
+  repo_owner: kevinsangani988
+  repo_name: Capstone-MLops
+  model_info_path: reports/experiment_info.json
+  model_name: my_model
+  stage: Staging
+
+
+
