@@ -1,10 +1,9 @@
 stages:
   data_ingestion:
-    cmd: python src/data/data_ingestion.py
+    cmd: python -m src.data.data_ingestion
     deps:
       - src/data/data_ingestion.py
       - src/blob/__init__.py
-      - src/constants/__init__.py
       - src/logger/__init__.py
       - params.yaml
     params:
@@ -14,7 +13,7 @@ stages:
       - data/raw/test.csv
 
   data_preprocessing:
-    cmd: python src/data/data_preprocessing.py
+    cmd: python -m src.data.data_preprocessing
     deps:
       - src/data/data_preprocessing.py
       - src/logger/__init__.py
@@ -29,7 +28,7 @@ stages:
       - model/preprocessor.pkl
 
   model_building:
-    cmd: python src/model/model_building.py
+    cmd: python -m src.model.model_building
     deps:
       - src/model/model_building.py
       - src/logger/__init__.py
@@ -41,7 +40,7 @@ stages:
       - model/model.pkl
 
   model_evaluation:
-    cmd: python src/model/model_evaluation.py
+    cmd: python -m src.model.model_evaluation
     deps:
       - src/model/model_evaluation.py
       - src/logger/__init__.py
@@ -56,7 +55,7 @@ stages:
       - reports/experiment_info.json
 
   register_model:
-    cmd: python src/model/register_model.py
+    cmd: python -m src.model.register_model
     deps:
       - src/model/register_model.py
       - src/logger/__init__.py
