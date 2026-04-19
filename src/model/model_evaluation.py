@@ -30,8 +30,25 @@ def setup_tracking(eval_params: dict) -> None:
     repo_name = eval_params.get('repo_name', 'Capstone-MLops')
 
     dagshub_token = (
-        os.getenv('DAGSHUB_TOKEN')
+        os.getenv('DAGSHUB_USER_TOKEN')
+        or os.getenv('DAGSHUB_TOKEN')
+        or os.getenv('MLFLOW_TRACKING_PASSWORD')
     )
+    is_ci = os.getenv('GITHUB_ACTIONS', '').lower() == 'true'
+
+    if dagshub_token:
+        # dagshub client reliably reads DAGSHUB_USER_TOKEN.
+        os.environ.setdefault('DAGSHUB_USER_TOKEN', dagshub_token)
+
+    # Always avoid interactive auth prompts in CI.
+    if 'dagshub.com' in tracking_uri and is_ci:
+        local_tracking_uri = 'file:./mlruns'
+        mlflow.set_tracking_uri(local_tracking_uri)
+        logger.warning(
+            'Running in CI. Using local MLflow tracking at %s to avoid interactive DagsHub auth.',
+            local_tracking_uri,
+        )
+        return
 
     if 'dagshub.com' in tracking_uri and not dagshub_token:
         local_tracking_uri = 'file:./mlruns'
@@ -43,7 +60,16 @@ def setup_tracking(eval_params: dict) -> None:
         return
 
     mlflow.set_tracking_uri(tracking_uri)
-    dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+    try:
+        dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+    except Exception as exc:
+        local_tracking_uri = 'file:./mlruns'
+        mlflow.set_tracking_uri(local_tracking_uri)
+        logger.warning(
+            'DagsHub tracking init failed (%s). Falling back to local MLflow at %s.',
+            exc,
+            local_tracking_uri,
+        )
 
 def load_model(file_path: str):
     """Load the trained model from a file."""

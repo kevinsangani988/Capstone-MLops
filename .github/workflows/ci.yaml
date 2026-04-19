@@ -8,6 +8,7 @@ jobs:
     env:
       CONN_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
+      DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
       MLFLOW_TRACKING_USERNAME: kevinsangani988
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
 
