@@ -13,3 +13,7 @@ pytest
 pytest-cov
 dvc
 azure-storage-blob
+fastapi
+uvicorn
+jinja2
+python-multipart

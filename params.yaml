@@ -54,5 +54,15 @@ model_registration:
   model_name: my_model
   stage: Staging
 
+serving:
+  tracking_uri: https://dagshub.com/kevinsangani988/Capstone-MLops.mlflow
+  model_uri: null
+  experiment_info_path: reports/experiment_info.json
+  local_model_path: ./model/model.pkl
+  preprocessor_path: ./model/preprocessor.pkl
+  target_col: loan_status
+  raw_train_data_path: ./data/raw/train.csv
+  processed_train_data_path: ./data/processed/train.csv
+
 
 

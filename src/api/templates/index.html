@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loan Approval Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="backdrop"></div>
+  <main class="layout">
+    <section class="hero panel reveal">
+      <p class="eyebrow">Smart Loan Assistant</p>
+      <h1>Loan Approval Predictor</h1>
+      <p class="subtitle">
+        Enter applicant details to get a quick estimate of loan approval and rejection risk.
+      </p>
+      <div class="chips">
+        <span class="chip">Easy eligibility check</span>
+        <span class="chip">Instant decision estimate</span>
+        <span class="chip">Clear risk summary</span>
+      </div>
+      <p class="subtitle">Tip: Fill all fields to get the most reliable estimate.</p>
+    </section>
+
+    <section class="panel reveal delay-1">
+      <form id="predict-form" class="grid" novalidate>
+        {% for field in fields %}
+          <label class="field" for="{{ field.name }}">
+            <span class="label">{{ field.name.replace('_', ' ').title() }}</span>
+            {% if field.type == 'number' %}
+              <input
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                type="number"
+                step="any"
+                required
+              >
+            {% else %}
+              <select id="{{ field.name }}" name="{{ field.name }}" required>
+                <option value="" selected disabled>Select an option</option>
+                {% for option in field.options %}
+                  <option value="{{ option }}">{{ option }}</option>
+                {% endfor %}
+              </select>
+            {% endif %}
+          </label>
+        {% endfor %}
+
+        <div class="actions">
+          <button id="predict-btn" type="submit">Run Prediction</button>
+          <button id="reset-btn" type="reset" class="ghost">Reset</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel result reveal delay-2" id="result-panel" aria-live="polite">
+      <h2>Prediction Summary</h2>
+      <p id="result-text">Fill the form and run prediction to see model output.</p>
+      <p id="probability-text"></p>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
