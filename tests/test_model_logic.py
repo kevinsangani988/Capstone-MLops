@@ -105,7 +105,7 @@ def test_model_evaluation_tracking_falls_back_to_local_in_ci(monkeypatch):
         }
     )
 
-    assert captured["uri"] == "file:./mlruns"
+    assert captured["uri"] == "sqlite:///mlflow.db"
 
 
 def test_model_evaluation_tracking_uses_remote_when_token_available(monkeypatch):

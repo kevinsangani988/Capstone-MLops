@@ -40,9 +40,10 @@ def setup_tracking(eval_params: dict) -> None:
         # dagshub client reliably reads DAGSHUB_USER_TOKEN.
         os.environ.setdefault('DAGSHUB_USER_TOKEN', dagshub_token)
 
+    local_tracking_uri = 'sqlite:///mlflow.db'
+
     # Always avoid interactive auth prompts in CI.
     if 'dagshub.com' in tracking_uri and is_ci:
-        local_tracking_uri = 'file:./mlruns'
         mlflow.set_tracking_uri(local_tracking_uri)
         logger.warning(
             'Running in CI. Using local MLflow tracking at %s to avoid interactive DagsHub auth.',
@@ -51,7 +52,6 @@ def setup_tracking(eval_params: dict) -> None:
         return
 
     if 'dagshub.com' in tracking_uri and not dagshub_token:
-        local_tracking_uri = 'file:./mlruns'
         mlflow.set_tracking_uri(local_tracking_uri)
         logger.warning(
             'DagsHub credentials not found. Falling back to local MLflow tracking at %s',
@@ -63,7 +63,6 @@ def setup_tracking(eval_params: dict) -> None:
     try:
         dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
     except Exception as exc:
-        local_tracking_uri = 'file:./mlruns'
         mlflow.set_tracking_uri(local_tracking_uri)
         logger.warning(
             'DagsHub tracking init failed (%s). Falling back to local MLflow at %s.',
