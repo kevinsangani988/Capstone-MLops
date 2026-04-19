@@ -1,24 +1,20 @@
 schema: '2.0'
 stages:
   data_ingestion:
-    cmd: python src/data/data_ingestion.py
+    cmd: python -m src.data.data_ingestion
     deps:
     - path: params.yaml
       hash: md5
-      md5: b112183a60f6d6578924e48ff35b18ed
-      size: 1555
+      md5: ab1f2da877fc43b0347b7932d0cabe5d
+      size: 1912
     - path: src/blob/__init__.py
       hash: md5
       md5: 0ba6a1337f306d473150d6c3d5f908a3
       size: 1813
-    - path: src/constants/__init__.py
-      hash: md5
-      md5: 146085100def180b064f6907327b416d
-      size: 390
     - path: src/data/data_ingestion.py
       hash: md5
-      md5: 69392f99af432352cadec075e160622a
-      size: 3293
+      md5: cc932740f6fa8d29ef1c6b32b7b6b1a1
+      size: 4909
     - path: src/logger/__init__.py
       hash: md5
       md5: 876d878d87711a23152b5d9b7b817ce9
@@ -32,7 +28,6 @@ stages:
           source_type: blob
           data_url: 
             https://raw.githubusercontent.com/kevinsangani988/dataset/refs/heads/main/loan_approval_dataset.csv
-          conn_str:
           container: mlops-risk-analysis
           blob_name: loan_approval_dataset.csv
     outs:
@@ -45,7 +40,7 @@ stages:
       md5: 5e93e67b0367c30db7a3e4638d79fc6a
       size: 288209
   data_preprocessing:
-    cmd: python src/data/data_preprocessing.py
+    cmd: python -m src.data.data_preprocessing
     deps:
     - path: data/raw/test.csv
       hash: md5
@@ -57,8 +52,8 @@ stages:
       size: 288209
     - path: params.yaml
       hash: md5
-      md5: b112183a60f6d6578924e48ff35b18ed
-      size: 1555
+      md5: ab1f2da877fc43b0347b7932d0cabe5d
+      size: 1912
     - path: src/data/data_preprocessing.py
       hash: md5
       md5: b40f44b7aae030cd37273bd553bde912
@@ -92,7 +87,7 @@ stages:
       md5: dd41e46056f0fdc4c7a996d99aa01291
       size: 2079
   model_building:
-    cmd: python src/model/model_building.py
+    cmd: python -m src.model.model_building
     deps:
     - path: data/processed/train.csv
       hash: md5
@@ -100,8 +95,8 @@ stages:
       size: 624431
     - path: params.yaml
       hash: md5
-      md5: b112183a60f6d6578924e48ff35b18ed
-      size: 1555
+      md5: ab1f2da877fc43b0347b7932d0cabe5d
+      size: 1912
     - path: src/logger/__init__.py
       hash: md5
       md5: 876d878d87711a23152b5d9b7b817ce9
@@ -134,7 +129,7 @@ stages:
       md5: ff9b73e1c05f46e9c2417a62a0f90bf5
       size: 5887884
   model_evaluation:
-    cmd: python src/model/model_evaluation.py
+    cmd: python -m src.model.model_evaluation
     deps:
     - path: data/processed/test.csv
       hash: md5
@@ -146,8 +141,8 @@ stages:
       size: 5887884
     - path: params.yaml
       hash: md5
-      md5: b112183a60f6d6578924e48ff35b18ed
-      size: 1555
+      md5: ab1f2da877fc43b0347b7932d0cabe5d
+      size: 1912
     - path: src/logger/__init__.py
       hash: md5
       md5: 876d878d87711a23152b5d9b7b817ce9
@@ -172,22 +167,22 @@ stages:
     outs:
     - path: reports/experiment_info.json
       hash: md5
-      md5: c3675ccfa42520070677677762f71fdc
+      md5: a7d90dc637c8d2cbb50128a3f77dde36
       size: 146
     - path: reports/metrics.json
       hash: md5
       md5: 60d88fa313b202de3816a41e869ba361
       size: 145
   register_model:
-    cmd: python src/model/register_model.py
+    cmd: python -m src.model.register_model
     deps:
     - path: params.yaml
       hash: md5
-      md5: b112183a60f6d6578924e48ff35b18ed
-      size: 1555
+      md5: ab1f2da877fc43b0347b7932d0cabe5d
+      size: 1912
     - path: reports/experiment_info.json
       hash: md5
-      md5: c3675ccfa42520070677677762f71fdc
+      md5: a7d90dc637c8d2cbb50128a3f77dde36
       size: 146
     - path: src/logger/__init__.py
       hash: md5

@@ -5,6 +5,8 @@ on: push
 jobs:
   project-testing:
     runs-on: ubuntu-latest
+    env:
+      CONN_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING || secrets.CAPSTONE_TEST }}
 
     steps:
       - name: checkout code
@@ -27,9 +29,19 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: validate blob connection string
+        shell: bash
+        run: |
+          if [ -z "$CONN_STRING" ]; then
+            echo "CONN_STRING is not set. Add AZURE_STORAGE_CONNECTION_STRING (or CAPSTONE_TEST) in repository secrets."
+            exit 1
+          fi
+
+          if [[ "$CONN_STRING" != *"DefaultEndpointsProtocol="* || "$CONN_STRING" != *"AccountName="* || "$CONN_STRING" != *"AccountKey="* || "$CONN_STRING" != *"EndpointSuffix="* ]]; then
+            echo "CONN_STRING format looks invalid. Use full Azure Storage connection string."
+            exit 1
+          fi
+
       - name: run pipeline
-        env:
-          CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
-          CONN_STRING: ${{ secrets.CAPSTONE_TEST }}
         run: |
           dvc repro

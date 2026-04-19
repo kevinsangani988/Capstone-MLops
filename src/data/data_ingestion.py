@@ -7,9 +7,48 @@ from sklearn.model_selection import train_test_split
 import yaml
 from src.logger import create_logger
 from src.blob import blob_connection_load_data
-from sklearn.preprocessing import LabelEncoder
 
 logger = create_logger()
+
+
+def _clean_connection_string(raw_value: str | None) -> str | None:
+    """Normalize connection string value from env/secrets.
+
+    Handles whitespace/quotes and values accidentally saved as
+    "CONN_STRING=..." in secret managers.
+    """
+    if not raw_value:
+        return None
+
+    cleaned = str(raw_value).strip().strip('"').strip("'")
+    if cleaned.startswith("CONN_STRING="):
+        cleaned = cleaned.split("=", 1)[1].strip()
+    return cleaned or None
+
+
+def _get_blob_connection_string() -> tuple[str, str]:
+    """Fetch blob connection string from supported environment variable names."""
+    candidate_env_vars = ["CONN_STRING", "AZURE_STORAGE_CONNECTION_STRING", "CAPSTONE_TEST"]
+
+    for env_var in candidate_env_vars:
+        value = _clean_connection_string(os.getenv(env_var))
+        if value:
+            return value, env_var
+
+    raise ValueError(
+        "Azure blob connection string is missing. Set CONN_STRING or "
+        "AZURE_STORAGE_CONNECTION_STRING in the environment/secrets."
+    )
+
+
+def _validate_connection_string(conn_str: str) -> None:
+    """Validate shape of Azure storage connection string without logging secrets."""
+    required_parts = ["DefaultEndpointsProtocol=", "AccountName=", "AccountKey=", "EndpointSuffix="]
+    if not all(part in conn_str for part in required_parts):
+        raise ValueError(
+            "Connection string is blank or malformed. Expected Azure Storage "
+            "format containing DefaultEndpointsProtocol, AccountName, AccountKey, and EndpointSuffix."
+        )
 
 def load_params(params_path: str) -> dict:
     try:
@@ -66,9 +105,11 @@ def main():
             data_url = ingestion_params.get('data_url')
             df = load_data(data_url=data_url)
         else:
-            blob_conn_str = os.getenv("CONN_STRING")
+            blob_conn_str, env_var_name = _get_blob_connection_string()
+            _validate_connection_string(blob_conn_str)
             blob_container = ingestion_params.get('container')
             blob_file_name = ingestion_params.get('blob_name')
+            logger.info("Using blob connection string from env var '%s'.", env_var_name)
             df = blob_connection_load_data(
                 conn_str=blob_conn_str,
                 container=blob_container,
