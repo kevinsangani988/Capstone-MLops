@@ -6,6 +6,7 @@ jobs:
   project-testing:
     runs-on: ubuntu-latest
     env:
+      PYTHONPATH: ${{ github.workspace }}
       CONN_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
       DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
       DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
@@ -35,7 +36,7 @@ jobs:
 
       - name: run unit tests
         run: |
-          pytest -q tests
+          python -m pytest -q tests
 
       - name: validate blob connection string
         shell: bash
