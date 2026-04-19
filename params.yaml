@@ -52,6 +52,7 @@ model_registration:
   model_info_path: reports/experiment_info.json
   model_name: my_model
   stage: Staging
+  archive_existing_versions: true
 
 serving:
   tracking_uri: https://dagshub.com/kevinsangani988/Capstone-MLops.mlflow

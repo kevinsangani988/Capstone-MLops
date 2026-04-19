@@ -101,7 +101,56 @@ def load_model_info(file_path: str) -> dict:
         logger.error('Unexpected error occurred while loading the model info: %s', e)
         raise
 
-def register_model(model_name: str, model_info: dict, stage: str = 'Staging'):
+
+def _promote_model_version(
+    client,
+    model_name: str,
+    version: str,
+    stage: str,
+    archive_existing_versions: bool = True,
+) -> None:
+    """Promote a model version and archive older versions in the same stage."""
+    try:
+        client.transition_model_version_stage(
+            name=model_name,
+            version=version,
+            stage=stage,
+            archive_existing_versions=archive_existing_versions,
+        )
+        return
+    except TypeError:
+        # Fallback for MLflow clients that do not support archive_existing_versions.
+        client.transition_model_version_stage(name=model_name, version=version, stage=stage)
+
+    if not archive_existing_versions:
+        return
+
+    try:
+        latest_versions = client.get_latest_versions(model_name, stages=[stage])
+    except Exception as exc:
+        logger.warning(
+            "Could not fetch latest versions for manual archive fallback on %s: %s",
+            model_name,
+            exc,
+        )
+        return
+
+    for model_version in latest_versions:
+        existing_version = str(getattr(model_version, "version", ""))
+        if existing_version and existing_version != str(version):
+            client.transition_model_version_stage(
+                name=model_name,
+                version=existing_version,
+                stage="Archived",
+            )
+
+
+def register_model(
+    model_name: str,
+    model_info: dict,
+    stage: str = 'Staging',
+    archive_existing_versions: bool = True,
+):
     """Register the model to the MLflow Model Registry."""
     candidate_uris = _candidate_model_uris(model_info)
     if not candidate_uris:
@@ -114,16 +163,20 @@ def register_model(model_name: str, model_info: dict, stage: str = 'Staging'):
             model_version = mlflow.register_model(model_uri, model_name)
 
             client = mlflow.tracking.MlflowClient()
-            client.transition_model_version_stage(
-                name=model_name,
-                version=model_version.version,
-                stage=stage
+            _promote_model_version(
+                client=client,
+                model_name=model_name,
+                version=str(model_version.version),
+                stage=stage,
+                archive_existing_versions=archive_existing_versions,
             )
 
             logger.debug(
-                "Model %s version %s registered and transitioned to Staging.",
+                "Model %s version %s registered and promoted to %s (archive_existing_versions=%s).",
                 model_name,
                 model_version.version,
+                stage,
+                archive_existing_versions,
             )
             return
         except Exception as exc:
@@ -143,10 +196,11 @@ def main():
         model_info_path = register_params.get('model_info_path', 'reports/experiment_info.json')
         model_name = register_params.get('model_name', 'my_model')
         stage = register_params.get('stage', 'Staging')
+        archive_existing_versions = register_params.get('archive_existing_versions', True)
 
         model_info = load_model_info(model_info_path)
 
-        register_model(model_name, model_info, stage)
+        register_model(model_name, model_info, stage, archive_existing_versions)
     except Exception as e:
         logger.error('Failed to complete the model registration process: %s', e)
         print(f"Error: {e}")
