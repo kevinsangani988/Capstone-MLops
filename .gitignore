@@ -89,7 +89,6 @@ target/
 .mypy_cache/
 
 creds.txt
-src/constants/
 logging_details/
 data/
 model/

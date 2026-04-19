@@ -6,7 +6,6 @@ import os
 from sklearn.model_selection import train_test_split
 import yaml
 from src.logger import create_logger
-from src.constants import *
 from src.blob import blob_connection_load_data
 from sklearn.preprocessing import LabelEncoder
 
@@ -64,12 +63,12 @@ def main():
         source_type = ingestion_params.get('source_type', 'blob')
 
         if source_type == 'csv':
-            data_url = ingestion_params.get('data_url', GITHUB_URI)
+            data_url = ingestion_params.get('data_url')
             df = load_data(data_url=data_url)
         else:
-            blob_conn_str = ingestion_params.get('conn_str') or conn_str
-            blob_container = ingestion_params.get('container', container)
-            blob_file_name = ingestion_params.get('blob_name', blob_name)
+            blob_conn_str = os.getenv("CONN_STRING")
+            blob_container = ingestion_params.get('container')
+            blob_file_name = ingestion_params.get('blob_name')
             df = blob_connection_load_data(
                 conn_str=blob_conn_str,
                 container=blob_container,

@@ -4,7 +4,6 @@ data_ingestion:
   data_path: ./data
   source_type: blob
   data_url: https://raw.githubusercontent.com/kevinsangani988/dataset/refs/heads/main/loan_approval_dataset.csv
-  conn_str: null
   container: mlops-risk-analysis
   blob_name: loan_approval_dataset.csv
 
