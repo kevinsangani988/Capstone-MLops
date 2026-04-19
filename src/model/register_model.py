@@ -30,6 +30,18 @@ def setup_tracking(register_params: dict) -> None:
     repo_owner = register_params.get('repo_owner', 'kevinsangani988')
     repo_name = register_params.get('repo_name', 'Capstone-MLops')
 
+    dagshub_token = (
+        os.getenv('DAGSHUB_TOKEN')
+        or os.getenv('DAGSHUB_USER_TOKEN')
+        or os.getenv('MLFLOW_TRACKING_PASSWORD')
+    )
+
+    if 'dagshub.com' in tracking_uri and not dagshub_token:
+        raise ValueError(
+            'DagsHub credentials are required for model registration. '
+            'Set DAGSHUB_TOKEN (or DAGSHUB_USER_TOKEN / MLFLOW_TRACKING_PASSWORD).'
+        )
+
     mlflow.set_tracking_uri(tracking_uri)
     dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
 

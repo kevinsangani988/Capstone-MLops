@@ -6,7 +6,10 @@ jobs:
   project-testing:
     runs-on: ubuntu-latest
     env:
-      CONN_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING || secrets.CAPSTONE_TEST }}
+      CONN_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+      DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
+      MLFLOW_TRACKING_USERNAME: kevinsangani988
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
 
     steps:
       - name: checkout code
@@ -33,7 +36,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "$CONN_STRING" ]; then
-            echo "CONN_STRING is not set. Add AZURE_STORAGE_CONNECTION_STRING (or CAPSTONE_TEST) in repository secrets."
+            echo "CONN_STRING is not set. Add AZURE_STORAGE_CONNECTION_STRING in repository secrets."
             exit 1
           fi
 
@@ -44,4 +47,4 @@ jobs:
 
       - name: run pipeline
         run: |
-          dvc repro
+          dvc repro model_evaluation

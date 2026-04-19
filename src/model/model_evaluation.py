@@ -29,6 +29,19 @@ def setup_tracking(eval_params: dict) -> None:
     repo_owner = eval_params.get('repo_owner', 'kevinsangani988')
     repo_name = eval_params.get('repo_name', 'Capstone-MLops')
 
+    dagshub_token = (
+        os.getenv('DAGSHUB_TOKEN')
+    )
+
+    if 'dagshub.com' in tracking_uri and not dagshub_token:
+        local_tracking_uri = 'file:./mlruns'
+        mlflow.set_tracking_uri(local_tracking_uri)
+        logger.warning(
+            'DagsHub credentials not found. Falling back to local MLflow tracking at %s',
+            local_tracking_uri,
+        )
+        return
+
     mlflow.set_tracking_uri(tracking_uri)
     dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
 
