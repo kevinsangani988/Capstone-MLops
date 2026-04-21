@@ -8,6 +8,7 @@ import dagshub
 import yaml
 
 import warnings
+import time
 warnings.simplefilter("ignore", UserWarning)
 warnings.filterwarnings("ignore")
 
@@ -152,36 +153,53 @@ def register_model(
     archive_existing_versions: bool = True,
 ):
     """Register the model to the MLflow Model Registry."""
+    def _is_transient_registration_error(exc: Exception) -> bool:
+        message = str(exc).lower()
+        transient_markers = [
+            'too many 500 error responses',
+            'max retries exceeded',
+            'connection aborted',
+            'temporarily unavailable',
+            'timed out',
+        ]
+        return any(marker in message for marker in transient_markers)
+
     candidate_uris = _candidate_model_uris(model_info)
     if not candidate_uris:
         raise ValueError("No valid model URI candidates found in experiment_info")
 
     last_error: Exception | None = None
     for model_uri in candidate_uris:
-        try:
-            logger.info("Trying model registration with URI: %s", model_uri)
-            model_version = mlflow.register_model(model_uri, model_name)
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.info("Trying model registration with URI: %s (attempt %d/%d)", model_uri, attempt, max_attempts)
+                model_version = mlflow.register_model(model_uri, model_name)
 
-            client = mlflow.tracking.MlflowClient()
-            _promote_model_version(
-                client=client,
-                model_name=model_name,
-                version=str(model_version.version),
-                stage=stage,
-                archive_existing_versions=archive_existing_versions,
-            )
+                client = mlflow.tracking.MlflowClient()
+                _promote_model_version(
+                    client=client,
+                    model_name=model_name,
+                    version=str(model_version.version),
+                    stage=stage,
+                    archive_existing_versions=archive_existing_versions,
+                )
 
-            logger.debug(
-                "Model %s version %s registered and promoted to %s (archive_existing_versions=%s).",
-                model_name,
-                model_version.version,
-                stage,
-                archive_existing_versions,
-            )
-            return
-        except Exception as exc:
-            last_error = exc
-            logger.warning("Registration failed for URI %s: %s", model_uri, exc)
+                logger.debug(
+                    "Model %s version %s registered and promoted to %s (archive_existing_versions=%s).",
+                    model_name,
+                    model_version.version,
+                    stage,
+                    archive_existing_versions,
+                )
+                return
+            except Exception as exc:
+                last_error = exc
+                logger.warning("Registration failed for URI %s (attempt %d/%d): %s", model_uri, attempt, max_attempts, exc)
+                if _is_transient_registration_error(exc) and attempt < max_attempts:
+                    time.sleep(2 * attempt)
+                    continue
+                break
 
     logger.error("Error during model registration after trying all URI candidates: %s", last_error)
     raise last_error

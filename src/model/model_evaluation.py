@@ -42,15 +42,6 @@ def setup_tracking(eval_params: dict) -> None:
 
     local_tracking_uri = 'sqlite:///mlflow.db'
 
-    # Always avoid interactive auth prompts in CI.
-    if 'dagshub.com' in tracking_uri and is_ci:
-        mlflow.set_tracking_uri(local_tracking_uri)
-        logger.warning(
-            'Running in CI. Using local MLflow tracking at %s to avoid interactive DagsHub auth.',
-            local_tracking_uri,
-        )
-        return
-
     if 'dagshub.com' in tracking_uri and not dagshub_token:
         mlflow.set_tracking_uri(local_tracking_uri)
         logger.warning(
@@ -62,6 +53,8 @@ def setup_tracking(eval_params: dict) -> None:
     mlflow.set_tracking_uri(tracking_uri)
     try:
         dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+        if is_ci:
+            logger.info('Running in CI with token. Using DagsHub MLflow tracking: %s', tracking_uri)
     except Exception as exc:
         mlflow.set_tracking_uri(local_tracking_uri)
         logger.warning(
