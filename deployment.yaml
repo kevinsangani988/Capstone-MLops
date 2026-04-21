@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capstone-mlops
+  labels:
+    app: capstone-mlops
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: capstone-mlops
+  template:
+    metadata:
+      labels:
+        app: capstone-mlops
+    spec:
+      containers:
+      - name: capstone-mlops
+        image: 012935470444.dkr.ecr.us-east-1.amazonaws.com/capstone-mlops:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "1"
+        env:
+        - name: CAPSTONE_TEST
+          valueFrom:
+            secretKeyRef:
+              name: capstone-secret
+              key: CAPSTONE_TEST
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: capstone-mlops-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: capstone-mlops
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
