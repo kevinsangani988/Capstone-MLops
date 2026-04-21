@@ -89,13 +89,39 @@ def test_promote_model_version_falls_back_and_archives_old_versions():
     assert ("loan_model", "6", "Archived", False) in calls
 
 
-def test_model_evaluation_tracking_falls_back_to_local_in_ci(monkeypatch):
+def test_model_evaluation_tracking_uses_remote_in_ci_when_token_available(monkeypatch):
     captured = {}
 
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.setenv("DAGSHUB_TOKEN", "token")
     monkeypatch.setattr(model_evaluation.mlflow, "set_tracking_uri", lambda uri: captured.setdefault("uri", uri))
-    monkeypatch.setattr(model_evaluation.dagshub, "init", lambda **_: (_ for _ in ()).throw(AssertionError("should not call dagshub.init in CI fallback")))
+    monkeypatch.setattr(model_evaluation.dagshub, "init", lambda **kwargs: captured.setdefault("init", kwargs))
+
+    model_evaluation.setup_tracking(
+        {
+            "tracking_uri": "https://dagshub.com/owner/repo.mlflow",
+            "repo_owner": "owner",
+            "repo_name": "repo",
+        }
+    )
+
+    assert captured["uri"] == "https://dagshub.com/owner/repo.mlflow"
+    assert captured["init"] == {"repo_owner": "owner", "repo_name": "repo", "mlflow": True}
+
+
+def test_model_evaluation_tracking_falls_back_to_local_in_ci_without_token(monkeypatch):
+    captured = {}
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("DAGSHUB_TOKEN", raising=False)
+    monkeypatch.delenv("DAGSHUB_USER_TOKEN", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    monkeypatch.setattr(model_evaluation.mlflow, "set_tracking_uri", lambda uri: captured.setdefault("uri", uri))
+    monkeypatch.setattr(
+        model_evaluation.dagshub,
+        "init",
+        lambda **_: (_ for _ in ()).throw(AssertionError("dagshub.init should not be called when token is missing")),
+    )
 
     model_evaluation.setup_tracking(
         {
