@@ -1,0 +1,6 @@
+docker build -t capp:latest -f Dockerfile .
+docker run -p 8000:8000 capp:latest  
+
+SubscriptionId                        TenantId
+------------------------------------  ------------------------------------
+40af53ab-3ed7-436a-bfdf-d1c84fcdc000  8775661c-d343-4930-a990-8a3360e2ca1f

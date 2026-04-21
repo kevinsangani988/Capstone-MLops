@@ -67,6 +67,31 @@ categorical_options: dict[str, list[str]] = {}
 app_runtime_config: dict[str, Any] = {}
 
 
+def _normalize_label_mapping(mapping: Any) -> dict[str, str]:
+    """Normalize a mapping object into string-key/string-value dictionary."""
+
+    if not isinstance(mapping, dict):
+        return {}
+
+    normalized: dict[str, str] = {}
+    for key, value in mapping.items():
+        normalized[str(key).strip()] = str(value).strip()
+    return normalized
+
+
+def _default_label_mapping(target_col: str) -> dict[str, str]:
+    """Return sensible defaults when explicit/inferred mapping is unavailable."""
+
+    if target_col.strip().lower() == "loan_status":
+        return {
+            "0": "Approved",
+            "0.0": "Approved",
+            "1": "Rejected",
+            "1.0": "Rejected",
+        }
+    return {}
+
+
 def _load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML content from disk and return an empty dict when missing."""
 
@@ -147,6 +172,7 @@ def _load_runtime_config() -> dict[str, Any]:
             serving.get("processed_train_data_path"),
             "data/processed/train.csv",
         ),
+        "label_mapping": _normalize_label_mapping(serving.get("label_mapping", {})),
     }
     return config
 
@@ -445,7 +471,17 @@ def startup_event() -> None:
     ) = _extract_preprocessor_schema(preprocessor)
 
     processed_feature_columns = [str(col) for col in preprocessor.get_feature_names_out()]
-    app_runtime_config["label_mapping"] = _infer_label_mapping(app_runtime_config)
+
+    inferred_mapping = _infer_label_mapping(app_runtime_config)
+    configured_mapping = app_runtime_config.get("label_mapping", {})
+    fallback_mapping = _default_label_mapping(str(app_runtime_config.get("target_col", "loan_status")))
+
+    # Priority: configured mapping > inferred mapping > fallback defaults.
+    app_runtime_config["label_mapping"] = {
+        **fallback_mapping,
+        **inferred_mapping,
+        **configured_mapping,
+    }
 
     logger.info("App startup complete with %d features.", len(feature_columns))
 

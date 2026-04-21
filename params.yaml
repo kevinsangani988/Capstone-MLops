@@ -61,8 +61,8 @@ serving:
   local_model_path: ./model/model.pkl
   preprocessor_path: ./model/preprocessor.pkl
   target_col: loan_status
+  label_mapping:
+    "0": Approved
+    "1": Rejected
   raw_train_data_path: ./data/raw/train.csv
   processed_train_data_path: ./data/processed/train.csv
-
-
-
