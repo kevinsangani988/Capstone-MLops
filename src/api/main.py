@@ -11,13 +11,15 @@ import json
 import os
 import pickle
 from pathlib import Path
+from threading import Lock
+from time import perf_counter
 from typing import Any
 
 import mlflow
 import pandas as pd
 import yaml
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -65,6 +67,48 @@ numeric_columns: list[str] = []
 categorical_columns: list[str] = []
 categorical_options: dict[str, list[str]] = {}
 app_runtime_config: dict[str, Any] = {}
+_prediction_metrics_lock = Lock()
+_prediction_metrics: dict[str, float | int] = {
+    "requests_total": 0,
+    "errors_total": 0,
+    "latency_sum_seconds": 0.0,
+    "last_latency_seconds": 0.0,
+    "min_latency_seconds": 0.0,
+    "max_latency_seconds": 0.0,
+}
+
+
+def _record_prediction_metrics(latency_seconds: float, success: bool) -> None:
+    """Update in-memory metrics for predict endpoint latency and status."""
+
+    with _prediction_metrics_lock:
+        requests_total = int(_prediction_metrics["requests_total"])
+        _prediction_metrics["requests_total"] = requests_total + 1
+        if not success:
+            _prediction_metrics["errors_total"] = int(_prediction_metrics["errors_total"]) + 1
+
+        _prediction_metrics["latency_sum_seconds"] = float(_prediction_metrics["latency_sum_seconds"]) + latency_seconds
+        _prediction_metrics["last_latency_seconds"] = latency_seconds
+
+        if requests_total == 0:
+            _prediction_metrics["min_latency_seconds"] = latency_seconds
+            _prediction_metrics["max_latency_seconds"] = latency_seconds
+        else:
+            _prediction_metrics["min_latency_seconds"] = min(
+                float(_prediction_metrics["min_latency_seconds"]),
+                latency_seconds,
+            )
+            _prediction_metrics["max_latency_seconds"] = max(
+                float(_prediction_metrics["max_latency_seconds"]),
+                latency_seconds,
+            )
+
+
+def _snapshot_prediction_metrics() -> dict[str, float | int]:
+    """Return a copy of current prediction metrics."""
+
+    with _prediction_metrics_lock:
+        return dict(_prediction_metrics)
 
 
 def _normalize_label_mapping(mapping: Any) -> dict[str, str]:
@@ -509,13 +553,67 @@ def schema() -> dict[str, Any]:
 def predict(payload: PredictionRequest) -> PredictionResponse:
     """Predict loan outcome from one or more input records."""
 
+    started_at = perf_counter()
+    success = False
+
     try:
-        return _predict(payload.instances)
+        response = _predict(payload.instances)
+        success = True
+        return response
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Prediction failed: %s", exc)
         raise HTTPException(status_code=500, detail="Prediction failed") from exc
+    finally:
+        elapsed = perf_counter() - started_at
+        _record_prediction_metrics(latency_seconds=elapsed, success=success)
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def metrics() -> PlainTextResponse:
+    """Expose prediction metrics in Prometheus text exposition format."""
+
+    stats = _snapshot_prediction_metrics()
+    requests_total = int(stats["requests_total"])
+    errors_total = int(stats["errors_total"])
+    latency_sum_seconds = float(stats["latency_sum_seconds"])
+
+    avg_latency_seconds = 0.0
+    if requests_total > 0:
+        avg_latency_seconds = latency_sum_seconds / requests_total
+
+    lines = [
+        "# HELP capstone_prediction_requests_total Total number of prediction requests.",
+        "# TYPE capstone_prediction_requests_total counter",
+        f"capstone_prediction_requests_total {requests_total}",
+        "# HELP capstone_prediction_errors_total Total number of failed prediction requests.",
+        "# TYPE capstone_prediction_errors_total counter",
+        f"capstone_prediction_errors_total {errors_total}",
+        "# HELP capstone_prediction_latency_seconds_sum Total prediction latency in seconds.",
+        "# TYPE capstone_prediction_latency_seconds_sum counter",
+        f"capstone_prediction_latency_seconds_sum {latency_sum_seconds:.6f}",
+        "# HELP capstone_prediction_latency_seconds_count Number of latency measurements.",
+        "# TYPE capstone_prediction_latency_seconds_count counter",
+        f"capstone_prediction_latency_seconds_count {requests_total}",
+        "# HELP capstone_prediction_latency_seconds_avg Average prediction latency in seconds.",
+        "# TYPE capstone_prediction_latency_seconds_avg gauge",
+        f"capstone_prediction_latency_seconds_avg {avg_latency_seconds:.6f}",
+        "# HELP capstone_prediction_latency_seconds_last Last prediction latency in seconds.",
+        "# TYPE capstone_prediction_latency_seconds_last gauge",
+        f"capstone_prediction_latency_seconds_last {float(stats['last_latency_seconds']):.6f}",
+        "# HELP capstone_prediction_latency_seconds_min Minimum prediction latency in seconds.",
+        "# TYPE capstone_prediction_latency_seconds_min gauge",
+        f"capstone_prediction_latency_seconds_min {float(stats['min_latency_seconds']):.6f}",
+        "# HELP capstone_prediction_latency_seconds_max Maximum prediction latency in seconds.",
+        "# TYPE capstone_prediction_latency_seconds_max gauge",
+        f"capstone_prediction_latency_seconds_max {float(stats['max_latency_seconds']):.6f}",
+    ]
+
+    return PlainTextResponse(
+        content="\n".join(lines) + "\n",
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 @app.get("/", response_class=HTMLResponse)

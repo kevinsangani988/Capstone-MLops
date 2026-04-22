@@ -99,3 +99,40 @@ def test_predict_endpoint_returns_response_payload(client_without_startup, monke
     assert body["predictions"] == ["Approved"]
     assert body["probabilities"] == [0.1]
     assert body["positive_class_label"] == "Rejected"
+
+
+def _extract_metric_value(metrics_text: str, metric_name: str) -> float:
+    for line in metrics_text.splitlines():
+        if line.startswith(f"{metric_name} "):
+            return float(line.split(" ", 1)[1])
+    raise AssertionError(f"Metric '{metric_name}' not found in /metrics output")
+
+
+def test_metrics_endpoint_exposes_prometheus_text(client_without_startup):
+    response = client_without_startup.get("/metrics")
+
+    assert response.status_code == 200
+    assert "capstone_prediction_requests_total" in response.text
+    assert "capstone_prediction_latency_seconds_avg" in response.text
+
+
+def test_predict_updates_metrics(client_without_startup, monkeypatch):
+    expected = api_main.PredictionResponse(
+        predictions=["Approved"],
+        probabilities=[0.1],
+        positive_class_label="Rejected",
+    )
+    monkeypatch.setattr(api_main, "_predict", lambda _: expected)
+
+    before = client_without_startup.get("/metrics")
+    before_count = _extract_metric_value(before.text, "capstone_prediction_requests_total")
+
+    predict_response = client_without_startup.post("/predict", json={"instances": [{"a": 1}]})
+    assert predict_response.status_code == 200
+
+    after = client_without_startup.get("/metrics")
+    after_count = _extract_metric_value(after.text, "capstone_prediction_requests_total")
+    latency_count = _extract_metric_value(after.text, "capstone_prediction_latency_seconds_count")
+
+    assert after_count == before_count + 1
+    assert latency_count == after_count
