@@ -7,6 +7,7 @@ API endpoints and an HTML form UI.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import json
 import os
 import pickle
@@ -50,10 +51,19 @@ class PredictionResponse(BaseModel):
     positive_class_label: str | None = None
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Initialize app resources once at startup using lifespan events."""
+
+    _initialize_app_resources()
+    yield
+
+
 app = FastAPI(
     title="Loan Approval Predictor",
     description="Estimate loan approval outcomes from applicant details.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -480,8 +490,7 @@ def _predict(instances: list[dict[str, Any]]) -> PredictionResponse:
     )
 
 
-@app.on_event("startup")
-def startup_event() -> None:
+def _initialize_app_resources() -> None:
     """Initialize app resources at startup.
 
     Loads runtime config, model, preprocessor, feature schema, and label mapping.

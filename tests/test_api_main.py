@@ -67,14 +67,10 @@ def test_build_input_frame_rejects_invalid_numeric_values():
 
 
 @pytest.fixture
-def client_without_startup():
-    original_startup_handlers = list(api_main.app.router.on_startup)
-    api_main.app.router.on_startup.clear()
-    try:
-        with TestClient(api_main.app) as client:
-            yield client
-    finally:
-        api_main.app.router.on_startup[:] = original_startup_handlers
+def client_without_startup(monkeypatch):
+    monkeypatch.setattr(api_main, "_initialize_app_resources", lambda: None)
+    with TestClient(api_main.app) as client:
+        yield client
 
 
 def test_health_endpoint(client_without_startup):

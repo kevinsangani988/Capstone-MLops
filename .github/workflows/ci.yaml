@@ -12,6 +12,7 @@ jobs:
       DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
       MLFLOW_TRACKING_USERNAME: kevinsangani988
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN || secrets.CAPSTONE_TEST }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME || 'flaskcluster' }}
 
     steps:
       - name: checkout code
@@ -71,6 +72,10 @@ jobs:
               missing=1
             fi
           done
+          if [ -z "$EKS_CLUSTER_NAME" ]; then
+            echo "EKS_CLUSTER_NAME is missing. Add EKS_CLUSTER_NAME secret or set job fallback."
+            missing=1
+          fi
           if [ "$missing" -eq 1 ]; then
             exit 1
           fi
@@ -90,11 +95,13 @@ jobs:
 
       - name: Build Docker image
         run: |
-            docker build -t ${{ secrets.ECR_REPOSITORY }}:latest .
+            docker build -t ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }} .
 
       - name: Tag Docker image
         run: |
-            docker tag ${{ secrets.ECR_REPOSITORY }}:latest \
+            docker tag ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }} \
+            ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+            docker tag ${{ secrets.ECR_REPOSITORY }}:${{ github.sha }} \
             ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
 
     
@@ -103,6 +110,7 @@ jobs:
 
       - name: Push Docker image to ECR
         run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
 
       - name: Set Up kubectl
@@ -112,7 +120,7 @@ jobs:
       
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --region us-east-1 --name flaskcluster
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name $EKS_CLUSTER_NAME
 
       - name: Create Kubernetes Secret
         run: |
@@ -122,3 +130,5 @@ jobs:
       - name: Deploy to EKS
         run: |
           kubectl apply -f deployment.yaml
+          kubectl set image deployment/capstone-mlops capstone-mlops=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+          kubectl rollout status deployment/capstone-mlops --timeout=300s
