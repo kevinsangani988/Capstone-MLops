@@ -1,7 +1,35 @@
 # Capstone MLOps: Loan Approval Prediction
 
 An end-to-end MLOps project that trains, evaluates, registers, serves, containers, and deploys a loan approval prediction model.
+An end-to-end MLOps project that trains, evaluates, registers, serves, containers, and deploys a loan approval prediction model.
 
+This repository combines:
+
+- data ingestion from Azure Blob Storage or a CSV URL
+- DVC pipeline orchestration
+- feature preprocessing and model training (scikit-learn)
+- MLflow + DagsHub experiment/model tracking
+- FastAPI inference API with UI
+- Docker containerization
+- GitHub Actions CI/CD
+- AWS ECR + EKS deployment
+
+## 1. Business Problem
+
+Predict loan outcome (Approved or Rejected) from applicant profile and asset details.
+
+Target column: loan_status
+
+## 2. High-Level Flow
+
+1. Ingest raw data from Azure Blob or CSV URL.
+2. Split train and test data.
+3. Preprocess features (scaling + one-hot encoding) and encode target.
+4. Train RandomForest model.
+5. Evaluate model and log metrics/artifacts to MLflow.
+6. Register model version in model registry.
+7. Serve predictions via FastAPI API and UI.
+8. Containerize and deploy to AWS EKS.
 This repository combines:
 
 - data ingestion from Azure Blob Storage or a CSV URL
@@ -31,7 +59,10 @@ Target column: loan_status
 8. Containerize and deploy to AWS EKS.
 
 ## 3. Tech Stack
+## 3. Tech Stack
 
+- Python 3.10+
+- scikit-learn, pandas, numpy
 - Python 3.10+
 - scikit-learn, pandas, numpy
 - DVC
@@ -42,11 +73,19 @@ Target column: loan_status
 - Docker
 - AWS ECR/EKS, kubectl, eksctl
 - GitHub Actions
+- DagsHub
+- FastAPI + Uvicorn + Jinja2
+- Azure Blob Storage SDK
+- Docker
+- AWS ECR/EKS, kubectl, eksctl
+- GitHub Actions
 
+## 4. Repository Structure
 ## 4. Repository Structure
 
 ```text
 Capstone-MLops/
+|-- .github/workflows/ci.yaml
 |-- .github/workflows/ci.yaml
 |-- data/
 |   |-- raw/
@@ -63,12 +102,20 @@ Capstone-MLops/
 |   |   |-- requirements.txt
 |   |   |-- static/
 |   |   `-- templates/
+|   |-- api/
+|   |   |-- main.py
+|   |   |-- requirements.txt
+|   |   |-- static/
+|   |   `-- templates/
 |   |-- blob/__init__.py
 |   |-- data/data_ingestion.py
 |   |-- data/data_preprocessing.py
 |   |-- model/model_building.py
 |   |-- model/model_evaluation.py
 |   `-- model/register_model.py
+|-- tests/
+|-- deployment.yaml
+|-- Dockerfile
 |-- tests/
 |-- deployment.yaml
 |-- Dockerfile
@@ -79,15 +126,21 @@ Capstone-MLops/
 ```
 
 ## 5. DVC Pipeline Stages
+## 5. DVC Pipeline Stages
 
+Defined in dvc.yaml.
 Defined in dvc.yaml.
 
 1. data_ingestion
     - Command: python -m src.data.data_ingestion
     - Inputs: params + ingestion code
+    - Command: python -m src.data.data_ingestion
+    - Inputs: params + ingestion code
     - Outputs: data/raw/train.csv, data/raw/test.csv
 
 2. data_preprocessing
+    - Command: python -m src.data.data_preprocessing
+    - Inputs: raw train/test + params
     - Command: python -m src.data.data_preprocessing
     - Inputs: raw train/test + params
     - Outputs: data/processed/train.csv, data/processed/test.csv, model/preprocessor.pkl
@@ -96,8 +149,13 @@ Defined in dvc.yaml.
     - Command: python -m src.model.model_building
     - Inputs: processed train + params
     - Outputs: model/model.pkl
+    - Command: python -m src.model.model_building
+    - Inputs: processed train + params
+    - Outputs: model/model.pkl
 
 4. model_evaluation
+    - Command: python -m src.model.model_evaluation
+    - Inputs: model + processed test + params
     - Command: python -m src.model.model_evaluation
     - Inputs: model + processed test + params
     - Outputs: reports/metrics.json, reports/experiment_info.json
@@ -106,10 +164,17 @@ Defined in dvc.yaml.
     - Command: python -m src.model.register_model
     - Inputs: experiment info + params
     - Action: register/promote model version in MLflow registry
+    - Command: python -m src.model.register_model
+    - Inputs: experiment info + params
+    - Action: register/promote model version in MLflow registry
 
+## 6. Configuration
 ## 6. Configuration
 
 All runtime config lives in params.yaml.
+All runtime config lives in params.yaml.
+
+Main sections:
 
 Main sections:
 
@@ -145,6 +210,31 @@ The ingestion code checks these env vars in order:
 - Docker (optional, for container run)
 
 ### Create environment
+### Data source switch
+
+In data_ingestion.source_type:
+
+- blob -> reads from Azure Blob Storage
+- csv -> reads from data_url
+
+### Azure connection variables (for blob mode)
+
+The ingestion code checks these env vars in order:
+
+1. CONN_STRING
+2. AZURE_STORAGE_CONNECTION_STRING
+3. CAPSTONE_TEST
+
+## 7. Local Setup
+
+### Prerequisites
+
+- Python 3.10+
+- Git
+- DVC
+- Docker (optional, for container run)
+
+### Create environment
 
 Windows PowerShell:
 
@@ -152,16 +242,21 @@ Windows PowerShell:
 python -m venv myenv
 .\myenv\Scripts\Activate.ps1
 pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
+### Run tests
 ### Run tests
 
 ```powershell
 python -m pytest -q tests
+python -m pytest -q tests
 ```
 
 ## 8. Run Training Pipeline
+## 8. Run Training Pipeline
 
+### Recommended: full DVC run
 ### Recommended: full DVC run
 
 ```powershell
@@ -169,8 +264,14 @@ dvc repro
 ```
 
 ### Stage-by-stage (manual)
+### Stage-by-stage (manual)
 
 ```powershell
+python -m src.data.data_ingestion
+python -m src.data.data_preprocessing
+python -m src.model.model_building
+python -m src.model.model_evaluation
+python -m src.model.register_model
 python -m src.data.data_ingestion
 python -m src.data.data_preprocessing
 python -m src.model.model_building
@@ -198,11 +299,38 @@ python -m src.model.register_model
 - MLFLOW_TRACKING_PASSWORD
 
 ## 10. Run API Locally
+## 9. Model Tracking and Registry
+
+### Evaluation tracking
+
+- Tracking URI comes from params.yaml (model_evaluation.tracking_uri).
+- If DagsHub token is present, logs go to remote MLflow.
+- If token is missing, code falls back to local sqlite:///mlflow.db.
+
+### Registration tracking
+
+- Registration expects valid DagsHub/MLflow credentials.
+- Registration logic tries multiple model URI candidates and retries transient remote errors.
+
+### Useful env vars for MLflow/DagsHub
+
+- DAGSHUB_TOKEN
+- DAGSHUB_USER_TOKEN
+- MLFLOW_TRACKING_PASSWORD
+
+## 10. Run API Locally
 
 ```powershell
 uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+Open:
+
+- http://127.0.0.1:8000 (UI)
+- http://127.0.0.1:8000/docs (Swagger)
+
+### API Endpoints
 Open:
 
 - http://127.0.0.1:8000 (UI)
@@ -216,6 +344,7 @@ Open:
 - POST /predict -> batch inference
 - GET /metrics -> Prometheus metrics (prediction request count, errors, latency)
 
+### Example request
 ### Example request
 
 ```json
@@ -238,6 +367,7 @@ Open:
 }
 ```
 
+### Example response
 ### Example response
 
 ```json
@@ -356,7 +486,51 @@ From reports/metrics.json:
 - Precision: 0.9744
 - Recall: 0.9744
 - AUC: 0.9988
+- Accuracy: 0.9813
+- Precision: 0.9744
+- Recall: 0.9744
+- AUC: 0.9988
 
+## 15. Troubleshooting
+
+### Error: unsupported Kubernetes version 1.25
+
+- Cause: old eksctl defaulting to unsupported version.
+- Fix: upgrade eksctl and pass --version explicitly.
+
+### Error: UnauthorizedOperation / AccessDenied in AWS
+
+- Verify active identity:
+
+```powershell
+aws sts get-caller-identity
+```
+
+- Ensure the intended IAM user/profile is active.
+- Ensure permissions boundary/SCP allows required EKS/EC2 actions.
+
+### API always returns Rejected
+
+- Check input values and schema via GET /schema.
+- Review returned probabilities and positive_class_label.
+- Validate model and preprocessor artifacts exist.
+
+### Docker app not reachable on localhost
+
+- Wait for startup logs to show app startup complete.
+- Check container is running and port mapping is correct.
+
+## 16. Public Release Checklist
+
+Before making repository public:
+
+1. Remove hardcoded credentials/tokens (if any).
+2. Keep secrets only in environment variables or GitHub Secrets.
+3. Verify .gitignore excludes local virtual environments and sensitive files.
+4. Ensure README instructions are reproducible.
+5. Add architecture diagram and screenshots (optional but recommended).
+
+## 17. License
 ## 15. Troubleshooting
 
 ### Error: unsupported Kubernetes version 1.25
